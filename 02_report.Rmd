@@ -1,0 +1,95 @@
+---
+title: "NHANES - CVD"
+author: "Jessica Minnier"
+date: "2/5/2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE, message = FALSE)
+source(here::here("01_get_data.R"))
+library(ggthemes)
+library(knitr)
+library(printr)
+```
+
+We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on the medical questionnaire data ([MCQ_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We define high ALT as ALT > 60 U/L, and cut triglycerides into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 and with CVD (not heart failure).
+
+Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are `r nrow(mydata)` subjects in this year of data. We must use survey design methods to estimate prevalence and quantiles in the population the survey sample is designed to represent.
+
+
+```{r}
+ggplot(mydata,aes(x=trigs,y=alt,col=trigs_cut))+geom_point()+ggtitle("NHANES data, 2013-2014") +labs(color = "Trigs Categories")+
+  theme_minimal()
+#ggplot(mydata%>%filter(!is.na(trigs_cut)),aes(x=alt,fill=trigs_cut))+geom_density(alpha=0.5)+facet_wrap(~trigs_cut)
+
+
+ggplot(mydata%>%filter(trigs_cut=="(200,500]"),aes(x=trigs,y=alt,col=factor(cvd_nohf)))+
+  geom_point(alpha=0.5)+ggtitle("NHANES data, 2013-2014\nTriglycerides<500,>200mg/dl") + theme_minimal()+
+  scale_color_manual(values = c("grey","red"),labels=c("No CVD","Yes CVD"),name="CVD Status")+
+  geom_point(data=mydata%>%filter(trigs_cut=="(200,500]",cvd_nohf==1))+
+  geom_hline(yintercept=60,color="green")
+
+```
+
+## CVD and Triglycerides
+
+```{r}
+nhanes.surv = svydesign(strata=~SDMVSTRA, id=~SDMVPSU, weights=~WTMEC2YR,data=mydata, nest=T)
+
+sv_mean_cvd = svymean(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
+sv_mean_total = svytotal(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
+```
+
+In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r sv_mean_total[1]` people in the US.
+
+
+Here we have a table of the proportion of CVD within each category of triglycerides.
+
+```{r}
+tmp = svyby(~cvd_nohf,~trigs_cut,design=subset(nhanes.surv,age>18), svymean, na.rm=T) 
+colnames(tmp) = c("Trig. Categories","Proportion CVD","SE of proportion")
+kable(tmp,digits=3,row.names = FALSE)
+```
+
+## Distribution of ALT
+
+We now examine the distribution of ALT within subjects who have CVD (by our definition) and have triglycerides between 200 and 500 mg/dl.
+
+First we can look at the quantiles and median of ALT. These are subjects with triglycerides > 200 and < 500, subset by CVD yes or no.
+
+```{r}
+
+nhanes.sub = subset(nhanes.surv,(trigs_cut=="(200,500]"))
+# svyby(~alt,~cvd_nohf,
+#       design=nhanes.sub, 
+#       svymean,na.rm=T)
+
+
+tmp = svyby(~alt,~cvd_nohf,
+      design=nhanes.sub, 
+      svyquantile, quantiles=c(0,0.05,0.25,0.5,0.75,0.95,1),ci=TRUE)
+## without ci=TRUE svyquantile does not compute standard errors
+tmp[,1] = c("CVD=FALSE","CVD=TRUE")
+tmp = tmp%>%select(cvd_nohf:`1`)
+colnames(tmp) = c("CVD yes/no","min","5th %ile","25th %ile", "median", "75th %ile","95th %ile","max")
+kable(tmp,digits=1,row.names = FALSE)
+
+```
+
+Now we look at the proportion with ALT < 60 U/L. These are subjects with triglycerides > 200 and < 500, subset by CVD yes or no.
+
+```{r}
+
+#tmp = svyby(~alt_low,~I((trigs_cut=="(200,500]")&(cvd_nohf==1)),design=nhanes.surv,svymean,na.rm=T) 
+
+tmp = svyby(~alt_low,~cvd_nohf,
+      design=nhanes.sub, 
+      svymean,na.rm=T) 
+tmp[,1] = c("CVD=FALSE","CVD=TRUE")
+colnames(tmp) = c("CVD yes/no","Proportion ALT < 60 U/L","SE of proportion")
+kable(tmp,digits=3,row.names = FALSE)
+```
+
+
+

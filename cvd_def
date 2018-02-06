@@ -1,0 +1,45 @@
+
+# Do you have any data about the range of ALTs in patients with TGs >200 mg/dL<500 mg/dL 
+# and CVD? This is the patient population that we want to enroll into the new study with
+# apoC-III LRx. Our cut off for enrollment is ALT<1.5xULN, and I assume the majority 
+# of these patients should be with this cut off because this is not NAFLD, just 
+# elevated TGs in CVD. However we got the question from the Agency about 
+# representative patient population so I need more firm data.
+
+In this presentation (https://www.heart.org/idc/groups/heart-public/@wcm/@sop/@smd/documents/downloadable/ucm_449847.pdf) it is defined as “Incidence of cardiovascular disease (coronary heart disease, heart failure, stroke, or intermittent claudication; does not include hypertension alone)” and from the corresponding manuscript (http://circ.ahajournals.org/content/131/4/e29.long) “AP is based on the Rose Questionnaire; estimates are made regularly for HF; hypertension is based on BP measurements and interviews; and an estimate can be made for total CVD, including MI, AP, HF, stroke, and hypertension.” Creating a CVD yes/no definition from all these variables in different questionnaires might be the hardest part, unless you are looking for a specific type of CVD population?
+
+Medical Conditions
+From: https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm
+MCQ160b - Ever told had congestive heart failure = NO
+MCQ160c - Ever told you had coronary heart disease = YES
+MCQ160d - Ever told you had angina/angina pectoris = YES
+MCQ160e - Ever told you had heart attack = YES
+MCQ160f - Ever told you had a stroke = YES
+
+From: https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm
+LBXSATSI  = "Alanine aminotransferase ALT (U/L)" < 1.5*40 U/L
+LBXSTR  = "Triglycerides (mg/dL)"  > 200 and < 500 mg/dL
+
+Other possibly relevant info:
+
+Rose questionnaire - CDQ
+from: https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/CDQ_H.htm
+not sure what (if any) variables to use from this? mostly defines Angina
+
+Demographics
+From: https://wwwn.cdc.gov/nchs/nhanes/2013-2014/demo_h.htm
+RIAGENDR - Gender - separate into male/female?
+RIDRETH3 - Race/Hispanic origin w/ NH Asian - do I need to restrict by race?
+RIDAGEYR - Age in years at screening - do I need to restrict by age?
+
+Prescription medications:
+https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/RXQ_RX_H.htm
+
+Blood pressure:
+This section provides data for three consecutive blood pressure (BP) measurements and other methodological measurements to obtain an accurate blood pressure.
+https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BPX_H.htm
+
+- I do not know how to define "intermittent claudication" with these variables
+- do I need to look for hypertension?
+
+Complete variable list: https://wwwn.cdc.gov/nchs/nhanes/search/variablelist.aspx
