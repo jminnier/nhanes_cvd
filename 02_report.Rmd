@@ -41,7 +41,7 @@ sv_mean_cvd = svymean(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
 sv_mean_total = svytotal(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
 ```
 
-In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r sv_mean_total[1]` people in the US.
+In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r round(sv_mean_total[1])` people in the US.
 
 
 Here we have a table of the proportion of CVD within each category of triglycerides.
@@ -91,5 +91,5 @@ colnames(tmp) = c("CVD yes/no","Proportion ALT < 60 U/L","SE of proportion")
 kable(tmp,digits=3,row.names = FALSE)
 ```
 
-
+Therefore, based on the NHANES data, we conclude that `r round(100*tmp[2,2],1)`% of subjects with CVD (as defined) and triglycerides <200&>500 have ALT < 60 U/L.
 

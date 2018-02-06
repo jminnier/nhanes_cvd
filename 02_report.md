@@ -40,3 +40,5 @@ Now we look at the proportion with ALT &lt; 60 U/L. These are subjects with trig
 |:-----------|---------------------------:|-----------------:|
 | CVD=FALSE  |                       0.938|             0.009|
 | CVD=TRUE   |                       0.989|             0.009|
+
+Therefore, based on the NHANES data, we conclude that 98.9% of subjects with CVD (as defined) and triglycerides &lt;200&&gt;500 have ALT &lt; 60 U/L.
