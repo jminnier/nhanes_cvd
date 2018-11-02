@@ -1,6 +1,6 @@
 ---
-title: "NHANES - CVD"
-author: "Jessica Minnier"
+title: "NHANES - ALT in CVD"
+author: "Jessica Minnier, minnier@ohsu.edu"
 date: "2/5/2018"
 output: github_document
 ---
@@ -13,9 +13,9 @@ library(knitr)
 library(printr)
 ```
 
-We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on the medical questionnaire data ([MCQ_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We define high ALT as ALT > 60 U/L, and cut triglycerides into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 and with CVD (not heart failure).
+We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on self report from the medical questionnaire data ([MCQ_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We examine proportion of ALT < 60 U/L, and categorize triglyceride levels into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 and with CVD (not heart failure).
 
-Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are `r nrow(mydata)` subjects in this year of data. We must use survey design methods to estimate prevalence and quantiles in the population the survey sample is designed to represent.
+Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are `r nrow(mydata)` subjects in this year of data, and `r sum(mydata$cvd_hf)` with CVD (as defined). We must use survey design methods to estimate the prevalence and quantiles of variables of interest witin the full US population, which the survey sample is designed to represent.
 
 
 ```{r}
@@ -41,7 +41,7 @@ sv_mean_cvd = svymean(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
 sv_mean_total = svytotal(~cvd_nohf,design=subset(nhanes.surv,age>18),na.rm=T)
 ```
 
-In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r round(sv_mean_total[1])` people in the US.
+In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r sprintf("%.0f",sv_mean_total[1])` people in the US.
 
 
 Here we have a table of the proportion of CVD within each category of triglycerides.
