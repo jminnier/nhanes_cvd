@@ -1,18 +1,18 @@
-NHANES - CVD
+NHANES - ALT in CVD
 ================
-Jessica Minnier
+Jessica Minnier, <minnier@ohsu.edu>
 2/5/2018
 
-We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on the medical questionnaire data ([MCQ\_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO\_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We define high ALT as ALT &gt; 60 U/L, and cut triglycerides into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 and with CVD (not heart failure).
+We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on self report from the medical questionnaire data ([MCQ\_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO\_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We examine proportion of ALT &lt; 60 U/L, and categorize triglyceride levels into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 and with CVD (not heart failure).
 
-Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are 10175 subjects in this year of data. We must use survey design methods to estimate prevalence and quantiles in the population the survey sample is designed to represent.
+Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are 10175 subjects in this year of data, and 0 with CVD (as defined). We must use survey design methods to estimate the prevalence and quantiles of variables of interest witin the full US population, which the survey sample is designed to represent.
 
 ![](02_report_files/figure-markdown_github/unnamed-chunk-1-1.png)![](02_report_files/figure-markdown_github/unnamed-chunk-1-2.png)
 
 CVD and Triglycerides
 ---------------------
 
-In the total adult population, 6.1% of adults in the US fulfill our definition of CVD. This equates to 1.410076310^{7} people in the US.
+In the total adult population, 6.1% of adults in the US fulfill our definition of CVD. This equates to 14100763 people in the US.
 
 Here we have a table of the proportion of CVD within each category of triglycerides.
 
