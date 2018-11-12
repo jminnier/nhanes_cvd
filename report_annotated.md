@@ -29,12 +29,12 @@ Pull Data
 BIOPRO\_H survey
 ----------------
 
-This survey contains triglycerides and ALT values.
+This [survey](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm) contains triglycerides and ALT values.
 
 We use `nhanesA::nhanes()` function to pull data from the worksheet by name. NHANES tables are stored in SAS '.XPT' format. This function returns a data frame with label attributes (see `?Hmisc::label`), which causes some issues when using regular R functions.
 
 ``` r
-# https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm.
+# https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm
 biopro <- nhanes('BIOPRO_H') 
 ```
 
@@ -101,7 +101,7 @@ glimpse(biopro)
 DEMO\_H survey
 --------------
 
-Here, we obtain the demographic variables. This also contains all the survey design variables
+Here, we obtain the demographic variables from the [demo survey](https://wwwn.cdc.gov/nchs/nhanes/2013-2014/demo_h.htm). This also contains all the survey design variables
 
 ``` r
 # https://wwwn.cdc.gov/nchs/nhanes/2013-2014/demo_h.htm
@@ -162,7 +162,7 @@ demo %>% tabyl(pregnant) %>% adorn_totals()
 MCQ\_H survey
 -------------
 
-This survey has history of cardiovascular disease data. We create a composite CVD variable, break it up into heart failure (HF) categories in `cvd_hf`, and further restrict to CVD cases without heart failure in the variable `cvd_nohf`.
+This [survey](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm) has history of cardiovascular disease data. We create a composite CVD variable, break it up into heart failure (HF) categories in `cvd_hf`, and further restrict to CVD cases without heart failure in the variable `cvd_nohf`.
 
 ``` r
 # https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm
@@ -247,7 +247,7 @@ mcq %>%
 Join
 ----
 
-Here we join all the data from the three worksheets:
+Here we join all the data from the three sources:
 
 ``` r
 mydata <- left_join(demo,mcq,by="SEQN")
