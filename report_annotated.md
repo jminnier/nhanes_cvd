@@ -3,15 +3,18 @@ NHANES CVD Example
 Jessica Minnier, <minnier@ohsu.edu>
 2018-11-12
 
+<!--Hello contributor! This is an md generated from an Rmd. Please edit the Rmd-->
 NHANES Data
 ===========
 
-The [NHANES (National Health and Nutrition Examination Survey)](https://www.cdc.gov/nchs/nhanes/index.htm) is a publicly available data set that is useful for studying health outcomes of children and adults in the US. The data is available in the form of individual worksheets for each year of the study. There are some cleaned and processed versions of the data, but they are often small subsets of the data, such as the `NHANES` R package. NHANES data is survey data, which means we must take into account the sampling weights when analyzing the data so that we appropriately represent the population that we wish to make inferences about.
+The [NHANES (National Health and Nutrition Examination Survey)](https://www.cdc.gov/nchs/nhanes/index.htm) is a publicly available data set from the CDC that is useful for studying health outcomes of children and adults in the US. The data is available in the form of individual worksheets for each year of the study. There are some cleaned and processed versions of the data, but they are often small subsets of the data, such as the `NHANES` R package. NHANES data is survey data, which means we must take into account the sampling weights when analyzing the data so that we appropriately represent the population that we wish to make inferences about.
 
 Motivation
 ==========
 
-This is an example of using the `nhanesA` package to pull raw NHANES data and process it enough to calculate a proportion of interest. This looks at one year of data from 3 worksheets.
+This is an example of using the [`nhanesA`](https://cran.r-project.org/web/packages/nhanesA/index.html) package to pull raw NHANES data and process it enough to calculate a proportion of interest. See the package [vignette](https://cran.r-project.org/web/packages/nhanesA/vignettes/Introducing_nhanesA.html) for more examples. This example looks at one year of data from 3 worksheets.
+
+Note, there is another package called [`RNHANES`](https://cran.r-project.org/web/packages/RNHANES/) that can be used to pull raw data, as well; see this [blog post](https://silentspring.org/devblog/2016/11/22/nhanes-made-simple-with-rnhanes.html).
 
 Scientific Question
 ===================
@@ -159,7 +162,7 @@ demo %>% tabyl(pregnant) %>% adorn_totals()
 MCQ\_H survey
 -------------
 
-This survey has history of cardiovascular disease data. We create a composite CVD variable, break it up into heart failure (HF) categories in `cvd_hf`, and further restrict to CVD cases without heart failure in the variable `cvd_noh`.
+This survey has history of cardiovascular disease data. We create a composite CVD variable, break it up into heart failure (HF) categories in `cvd_hf`, and further restrict to CVD cases without heart failure in the variable `cvd_nohf`.
 
 ``` r
 # https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm
@@ -244,7 +247,7 @@ mcq %>%
 Join
 ----
 
-Here we join all the worksheet data:
+Here we join all the data from the three worksheets:
 
 ``` r
 mydata <- left_join(demo,mcq,by="SEQN")
@@ -336,30 +339,26 @@ Weighted means, proportions, totals
 We can use svymean to calculate weighted means of variables, including proportions (means of binary variables 0/1).
 
 ``` r
-sv_mean_alt <- svymean(~alt,design=nhanes_adult,na.rm=T)
-sv_mean_alt %>% kable(digits=3)
+(svy_mean_alt <- svymean(~alt,design=nhanes_adult,na.rm=T))
 ```
 
-|     |    mean|    alt|
-|-----|-------:|------:|
-| alt |  25.183|  0.369|
+    ##       mean     SE
+    ## alt 25.183 0.3692
 
 ``` r
-sv_mean_cvd <- svymean(~cvd_hf,design=nhanes_adult,na.rm=T)
-sv_mean_cvd %>% kable(digits=3)
+(svy_mean_cvd <- svymean(~cvd_hf,design=nhanes_adult,na.rm=T))
 ```
 
-|                    |   mean|     SE|
-|--------------------|------:|------:|
-| cvd\_hfCVD, No HF  |  0.062|  0.004|
-| cvd\_hfCVD, Yes HF |  0.017|  0.002|
-| cvd\_hfNo CVD      |  0.921|  0.005|
+    ##                       mean     SE
+    ## cvd_hfCVD, No HF  0.061540 0.0041
+    ## cvd_hfCVD, Yes HF 0.016993 0.0019
+    ## cvd_hfNo CVD      0.921467 0.0047
 
 We can also estimate the total number of adults in the full population with `svytotal`.
 
 ``` r
-sv_mean_total <- svytotal(~cvd_hf,design=nhanes_adult,na.rm=T)
-sv_mean_total %>% kable(digits=1)
+svy_mean_total <- svytotal(~cvd_hf,design=nhanes_adult,na.rm=T)
+svy_mean_total %>% kable(digits=1)
 ```
 
 |                    |      total|          SE|
@@ -409,7 +408,7 @@ kable(tmp,digits=1,row.names = FALSE)
 | CVD=FALSE or NA |    7|        13|       19.0|      26|         35|       67.7|  269|
 | CVD=TRUE        |    9|        12|       16.1|      21|         27|       44.1|   88|
 
-How does this differ from the quantiles of the NHANES data without using survey weights? We can see that the min and max stay the same, but the percentiles change slightly:
+How does this differ from the quantiles of the NHANES data without using survey weights? We can see that the min and max stay the same, but the percentiles change slightly. This is because this is the finite sample data quantiles, and does not represent the full population from which the data is sampled.
 
 ``` r
 tmp <- mydata %>% 
