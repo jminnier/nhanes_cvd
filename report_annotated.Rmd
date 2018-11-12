@@ -1,0 +1,317 @@
+---
+title: "NHANES CVD Example"
+author: "Jessica Minnier, minnier@ohsu.edu"
+date: '`r Sys.Date()`'
+output: github_document
+---
+
+```{r setup, include=FALSE}
+library(ggthemes)
+library(knitr)
+library(printr)
+library(naniar)
+library(nhanesA)
+library(tidyverse)
+library(janitor)
+library(survey)
+library(Hmisc)
+
+source(here::here("00_fun_data_helpers.R"))
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+```
+
+# NHANES Data
+
+The [NHANES (National Health and Nutrition Examination Survey)](https://www.cdc.gov/nchs/nhanes/index.htm) is a publicly available data set that is useful for studying health outcomes of children and adults in the US. The data is available in the form of individual worksheets for each year of the study. There are some cleaned and processed versions of the data, but they are often small subsets of the data, such as the `NHANES` R package. NHANES data is survey data, which means we must take into account the sampling weights when analyzing the data so that we appropriately represent the population that we wish to make inferences about.
+
+# Motivation
+
+This is an example of using the `nhanesA` package to pull raw NHANES data and process it enough to calculate a proportion of interest. This looks at one year of data from 3 worksheets.
+
+# Scientific Question
+
+**What is the proportion of people who have Alanine aminotransferase (ALT) < 60 U/L within the population of people with cardiovascular disease (CVD) and triglycerides between 200-500 mg/dl.** (This was a question motivated by a collaborator who needed to know how many people could be accrued into a clinical study.)
+
+We define CVD as no history of HF, with history of either CHD, angina, MI, or stroke, based on self report from the medical questionnaire data ([MCQ_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm)). The triglycerides and ALT values are from Biological Profile ([BIOPRO_H](https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm)). We examine proportion of ALT < 60 U/L, and categorize triglyceride levels into 0-200, 200-500, and 500+ categories. We are interested in the distribution of ALT in subjects with triglycerides between 200 and 500 mg/dl and with CVD (without heart failure).
+
+# Pull Data
+
+## BIOPRO_H survey
+
+This survey contains triglycerides and ALT values.
+
+We use `nhanesA::nhanes()` function to pull data from the worksheet by name. NHANES tables are stored in SAS '.XPT' format. This function returns a data frame with label attributes (see `?Hmisc::label`), which causes some issues when using regular R functions.  
+
+```{r}
+# https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/BIOPRO_H.htm.
+biopro <- nhanes('BIOPRO_H') 
+class(biopro)
+# str(biopro) #throws an error
+```
+
+The labels are stored as a named character vector like so:
+
+```{r}
+Hmisc::label(biopro) %>% head # what do the labels look like
+```
+
+In order to use tidyverse functions from `dplyr` on the resulting data set, we remove the labels using a function `clear_labels()` defined in the file `00_fun_data_helpers.R`. 
+
+```{r}
+# store the labels for later
+biopro_labels <- Hmisc::label(biopro)
+# clear 'em out!
+biopro <- clear_labels(biopro)
+```
+
+We create the variables of interest, give them friendlier names, and keep the ID variable `SEQN` to link to other data sets. 
+
+```{r}
+biopro <- biopro %>%
+  select(SEQN,LBXSATSI,LBXSTR) %>%
+  rename(trigs=LBXSTR,
+         alt=LBXSATSI) %>%
+  mutate(trigs_cut=cut(trigs,c(0,200,500,6100)),
+         alt_low = 1*(alt<60))
+glimpse(biopro)
+```
+
+## DEMO_H survey
+
+Here, we obtain the demographic variables. This also contains all the survey design variables
+
+```{r}
+# https://wwwn.cdc.gov/nchs/nhanes/2013-2014/demo_h.htm
+demo <- nhanes('DEMO_H')
+demo_labels <- Hmisc::label(demo)
+demo <- clear_labels(demo)
+```
+
+The function `nhanesA::nhanesTranslate()` translates categorical variables to meaningful categories (i.e. No/Yes or Male/Female vs the default numbering 1/2). For example, race, pregnancy, and sex variables are easier to use when the categories are labeled:
+
+```{r}
+demo_vars = c("RIAGENDR","RIDEXPRG","RIDRETH3")
+demo <- nhanesA::nhanesTranslate('DEMO_H', demo_vars, data=demo)
+demo <- demo %>% 
+  mutate(sex=RIAGENDR,pregnant=RIDEXPRG,race=RIDRETH3,age=RIDAGEYR)
+
+glimpse(demo %>% select(sex, pregnant, race, age)) # just to see a few categories
+demo %>% tabyl(race) %>% adorn_totals()
+demo %>% tabyl(pregnant) %>% adorn_totals()
+```
+
+## MCQ_H survey
+
+This survey has history of cardiovascular disease data. We create a composite CVD variable, break it up into heart failure (HF) categories in `cvd_hf`, and further restrict to CVD cases without heart failure in the variable `cvd_noh`.
+
+```{r}
+# https://wwwn.cdc.gov/Nchs/Nhanes/2013-2014/MCQ_H.htm
+mcq <- nhanes('MCQ_H')
+mcq_labels <- Hmisc::label(mcq)
+mcq <- clear_labels(mcq)
+# MCQ160b - Ever told had congestive heart failure
+# MCQ160c - Ever told you had coronary heart disease
+# MCQ160d - Ever told you had angina/angina pectoris
+# MCQ160e - Ever told you had heart attack
+# MCQ160f - Ever told you had a stroke
+mcq_vars = c("MCQ160B","MCQ160C","MCQ160D",
+              "MCQ160E","MCQ160F")
+mcq <- nhanesTranslate('MCQ_H', mcq_vars, data=mcq)
+mcq <- mcq %>% 
+  select(SEQN,one_of(mcq_vars))
+colnames(mcq)[-1] <- c("chf","chd","angina","MI","stroke")
+mcq <- mcq%>%
+  mutate(
+    cvd = 1*((chd=="Yes")|(angina=="Yes")|(MI=="Yes")|(stroke=="Yes")),
+    cvd_hf = case_when(
+      cvd==0 ~ "No CVD",
+      (chf=="No")&(cvd==1) ~ "CVD, No HF",
+      (chf=="Yes")&(cvd==1) ~ "CVD, Yes HF",
+      TRUE ~ as.character(NA)),
+    cvd_nohf = case_when( # Only care about cvd+noHF = 1, vs all else 0 (including NAs)
+      cvd_hf=="CVD, No HF" ~ 1,
+      TRUE ~ 0
+    )) 
+```
+
+Table of CVD vs CVD with HF info:
+
+```{r}
+mcq %>%
+  tabyl(chf,cvd) %>%
+  adorn_title() %>%
+  kable
+
+mcq %>%
+  tabyl(cvd_hf,cvd) %>%
+  adorn_title() %>%
+  kable
+
+mcq %>%
+  tabyl(cvd_nohf,cvd) %>%
+  adorn_title() %>%
+  kable
+```
+
+## Join
+
+Here we join all the worksheet data:
+
+```{r}
+mydata <- left_join(demo,mcq,by="SEQN")
+mydata <- left_join(mydata,biopro,by="SEQN")
+```
+
+# Analysis
+
+
+Below we can see the observed values of ALT vs triglycerides in the NHANES data 2013-2014. There are `r nrow(mydata)` subjects in this year of data, and `r sum(mydata$cvd_nohf, na.rm=T)` with CVD (as defined). We must use survey design methods to estimate the prevalence and quantiles of variables of interest within the full US population, which the survey sample is designed to represent.
+
+## Visualization
+
+First, we visualize the data to get a sense of the ALT distributions. It looks like there are some extreme values for both triglycerides (> 6000?!) and ALT. If we were doing more in depth analyses, we should probably worry about those more. But, we're interested in a more restricted population.
+
+```{r}
+theme_set(theme_bw())
+
+ggplot(mydata,aes(x=trigs,y=alt))+
+  geom_miss_point(alpha=.3)+
+  ggtitle("NHANES data, 2013-2014\nTrigs v ALT") +
+  scale_color_viridis_d(end = .8)
+
+ggplot(mydata, aes(x=trigs_cut,y=alt,fill=trigs_cut)) +
+  geom_violin(alpha=.6)+
+  geom_boxplot(width=.1)+
+  ggtitle("NHANES data, 2013-2014\nALT ~ Trigs + CVD")+
+  scale_fill_viridis_d(name="Trigs Categories")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_grid(.~cvd_hf)
+```
+
+Now, we restrict trigs to between 200 and 500 mg/dl. We can see that most of the patients with CVD have ALT less than 60 U/L. The green line represents the ALT cutoff of 60 U/L.
+
+```{r}
+ggplot(mydata%>%filter(trigs_cut=="(200,500]"),aes(x=trigs,y=alt,col=factor(cvd_nohf)))+
+  geom_miss_point(alpha=0.5)+
+  ggtitle("NHANES data, 2013-2014\nTriglycerides<500,>200mg/dl") + 
+  scale_color_manual(values = c("grey","red"),labels=c("Everyone Else","CVD + No HF"),name="CVD Status")+
+  geom_point(data=mydata%>%filter(trigs_cut=="(200,500]",cvd_nohf==1))+
+  geom_hline(yintercept=60,color="green")
+
+
+ggplot(mydata%>%filter(trigs_cut=="(200,500]"),aes(x=trigs,y=alt,col=cvd_hf))+
+  geom_miss_point(alpha=0.5)+
+  ggtitle("NHANES data, 2013-2014\nTriglycerides<500,>200mg/dl") + 
+  facet_wrap(~cvd_hf)+
+  geom_point(data=mydata%>%filter(trigs_cut=="(200,500]",cvd_nohf==1))+
+  geom_hline(yintercept=60,color="green")
+
+```
+
+## Survey design
+
+Here comes the meat of it all. We use the `survey::svydesign()` function to specify the survey design and implement survey weighting. We need to specify the strata, id, and weight variables. Most survey data will give you example code to specify your model and you can determine the proper design from the code if not the description of the sampling design.
+
+```{r}
+(nhanes_surv <- svydesign(strata=~SDMVSTRA, id=~SDMVPSU, weights=~WTMEC2YR, data=mydata, nest=TRUE))
+```
+
+Once we have the survey design specified, we can use analysis functions in the `survey` package to calculate proportions and weighted totals.
+
+Note, when we wish to examine a subset of the data, such as adults (`age>18`), we must specify this in the design. We cannot simply remove that subset of the data through filtering, because the survey weights will no longer be correct.
+
+```{r}
+nhanes_adult <- subset(nhanes_surv,age>=18)
+```
+
+
+## Weighted means, proportions, totals
+
+We can use svymean to calculate weighted means of variables, including proportions (means of binary variables 0/1).
+
+```{r}
+sv_mean_alt <- svymean(~alt,design=nhanes_adult,na.rm=T)
+sv_mean_alt %>% kable(digits=3)
+```
+
+
+```{r}
+sv_mean_cvd <- svymean(~cvd_hf,design=nhanes_adult,na.rm=T)
+sv_mean_cvd %>% kable(digits=3)
+```
+
+We can also estimate the total number of adults in the full population with `svytotal`.
+
+```{r}
+sv_mean_total <- svytotal(~cvd_hf,design=nhanes_adult,na.rm=T)
+sv_mean_total %>% kable(digits=1)
+```
+
+In the total adult population, `r round(100*sv_mean_cvd[1],1)`% of adults in the US fulfill our definition of CVD. This equates to `r sprintf("%.0f",sv_mean_total[1])` people in the US.
+
+Here we have a table of the proportion of CVD within each category of triglycerides.
+
+```{r}
+tmp = svyby(~cvd_nohf,~trigs_cut,design=nhanes_adult, svymean, na.rm=T) 
+colnames(tmp) = c("Trig. Categories","Proportion CVD","SE of proportion")
+kable(tmp,digits=3,row.names = FALSE)
+```
+
+## Distribution of ALT
+
+We now examine the distribution of ALT within subjects who have CVD (by our definition) and have triglycerides between 200 and 500 mg/dl.
+
+First we can look at the quantiles and median of ALT. These are subjects with triglycerides > 200 and < 500, subset by CVD yes or no.
+
+```{r}
+
+nhanes_trigs = subset(nhanes_adult,(trigs_cut=="(200,500]"))
+
+tmp = svyby(~alt,~cvd_nohf,
+      design=nhanes_trigs, 
+      svyquantile, quantiles=c(0,0.05,0.25,0.5,0.75,0.95,1),ci=TRUE)
+## without ci=TRUE svyquantile does not compute standard errors
+tmp[,1] = c("CVD=FALSE or NA","CVD=TRUE")
+tmp = tmp%>%select(cvd_nohf:`1`)
+colnames(tmp) = c("CVD yes/no","min","5th %ile","25th %ile", "median", "75th %ile","95th %ile","max")
+kable(tmp,digits=1,row.names = FALSE)
+
+```
+
+How does this differ from the quantiles of the NHANES data without using survey weights? We can see that the min and max stay the same, but the percentiles change slightly:
+
+```{r}
+tmp <- mydata %>% 
+  filter(age>=18,
+         trigs_cut=="(200,500]") %>%
+  group_by(cvd_nohf) %>%
+  summarize_at(.vars = vars(alt),
+               .funs = funs(min,
+                            '55th %isle'=quantile(.,probs = .05),
+                            '25th %isle'=quantile(.,probs = .25),
+                            median,
+                            '75th %isle'=quantile(.,probs = .75),
+                            '95th %isle'=quantile(.,probs = .95),
+                            max))
+tmp[,1] = c("CVD=FALSE or NA","CVD=TRUE")
+colnames(tmp)[1] = c("CVD yes/no")
+kable(tmp,digits=1,row.names = FALSE)
+```
+
+
+Now, we can explicitly answer our question of interest with `svyby` (we could also have used `svymean`) what is the proportion of people with ALT < 60 within the population of CVD (no HF) patients with trigs between 200-500?
+
+```{r}
+tmp = svyby(~alt_low, ~cvd_hf,design=nhanes_trigs, svymean, na.rm=T) 
+colnames(tmp) = c("CVD Categories","Proportion ALT < 60","SE of proportion")
+kable(tmp,digits=3,row.names = FALSE)
+
+myprop <- tmp %>% filter(`CVD Categories`=="CVD, No HF") %>% pull(`Proportion ALT < 60`)
+```
+
+
+
+
+# Conclusion
+
+So, we have our answer. Based on the 2013-2014 NHANES data, we estimate that approximately `r round(100*myprop,1)`% of patients have ALT < 60 in our sub-population of interest (CVD, no HF, trigs between 200-500).
