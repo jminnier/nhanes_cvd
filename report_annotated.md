@@ -1,7 +1,7 @@
 NHANES CVD Example
 ================
 Jessica Minnier, <minnier@ohsu.edu>
-2018-11-12
+2018-11-13
 
 <!--Hello contributor! This is an md generated from an Rmd. Please edit the Rmd-->
 NHANES Data
@@ -449,9 +449,70 @@ kable(tmp,digits=3,row.names = FALSE)
 
 ``` r
 myprop <- tmp %>% filter(`CVD Categories`=="CVD, No HF") %>% pull(`Proportion ALT < 60`)
+myse <- tmp %>% filter(`CVD Categories`=="CVD, No HF") %>% pull(`SE of proportion`)
 ```
 
 Conclusion
 ==========
 
 So, we have our answer. Based on the 2013-2014 NHANES data, we estimate that approximately 98.9% of patients have ALT &lt; 60 in our sub-population of interest (CVD, no HF, trigs between 200-500).
+
+Compare to non-survey methods
+=============================
+
+Note, if we had ingored the sampling design and assumed the data represents the larger population as-is, we would have had a slightly different answer. Often, the discrepancy between the two methods is much larger, especially when some sub-populations are heavily over-sampled.
+
+``` r
+tmpdat <- mydata %>% 
+  filter(age>=18,
+         trigs_cut=="(200,500]",
+         cvd_nohf==1) 
+tmp <- tmpdat %>%
+  mutate(alt_low = factor(alt_low,labels=c("ALT >= 60","ALT < 60"))) %>%
+  tabyl(alt_low) 
+tmp %>% adorn_pct_formatting() %>% kable
+```
+
+| alt\_low     |    n| percent |
+|:-------------|----:|:--------|
+| ALT &gt;= 60 |    2| 2.0%    |
+| ALT &lt; 60  |  100| 98.0%   |
+
+``` r
+myprop2 <- tmp$percent[2]
+```
+
+If we were to use the Normal approximation to obtain a 95% confidence interval for the proportion of interest using survey weight methods, we would have:
+
+``` r
+ci_lower <- myprop - 1.96*myse
+ci_upper <- myprop + 1.96*myse
+glue::glue("({round(ci_lower,3)},{min(1,round(ci_upper,3))})") # truncate at 1
+```
+
+    ## (0.971,1)
+
+Whereas the confidence interval using "survey-blind" methods is slightly wider:
+
+``` r
+myse2 <- sqrt(myprop2*(1-myprop2)/nrow(tmpdat))
+ci_lower2 <- myprop2 - 1.96*myse2
+ci_upper2 <- myprop2 + 1.96*myse2
+glue::glue("({round(ci_lower2,3)},{min(1,round(ci_upper2,3))})") # truncate at 1
+```
+
+    ## (0.953,1)
+
+``` r
+ci_data <- data_frame(method=c("survey","normal"),estimate=c(myprop,myprop2),
+           ci_lower=c(ci_lower,ci_lower2),ci_upper=c(ci_upper,ci_upper2))
+ggplot(ci_data)+
+  geom_point(aes(x=method,y=estimate,fill=method),pch=21,size=2)+
+  geom_errorbar(aes(x=method,ymin=ci_lower,ymax=ci_upper,color=method))+
+  coord_flip()+
+  ggtitle("95% Confidence Intervals for Proportion")
+```
+
+![](report_annotated_files/figure-markdown_github/unnamed-chunk-24-1.png)
+
+We have a larger SE (0.014) using "regular" methods compared to the survey weighted SE (0.009), so we gained precision by using the survey weighted methods, and also we have removed some bias from the estimate since we used the proper weights.
